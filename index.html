@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yarwin Redeem Pro - Bulk Gift Code Redemption</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+  <!-- Toast Container -->
+  <div id="toastContainer"></div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-icon">
+        <i class="fas fa-bolt"></i>
+      </div>
+      <div class="logo-text">
+        <h1>Yarwin</h1>
+        <span>Redeem Pro</span>
+      </div>
+    </div>
+
+    <nav class="nav-menu">
+      <a href="#" class="nav-item active" data-tab="dashboard">
+        <i class="fas fa-chart-line"></i>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="nav-item" data-tab="accounts">
+        <i class="fas fa-users"></i>
+        <span>Accounts</span>
+        <span class="badge" id="accountBadge">0</span>
+      </a>
+      <a href="#" class="nav-item" data-tab="redeem">
+        <i class="fas fa-gift"></i>
+        <span>Redeem</span>
+      </a>
+      <a href="#" class="nav-item" data-tab="logs">
+        <i class="fas fa-terminal"></i>
+        <span>Logs</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="status-indicator">
+        <div class="status-dot online"></div>
+        <span>Server Online</span>
+      </div>
+      <p class="version">v2.0.0 | Open Source</p>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="page-title">
+        <h2 id="pageTitle">Dashboard</h2>
+        <p id="pageSubtitle">Overview of your redemption system</p>
+      </div>
+      <div class="top-actions">
+        <button class="btn-icon" id="clearAllBtn" title="Clear All Data">
+          <i class="fas fa-trash-alt"></i>
+        </button>
+        <a href="https://github.com" target="_blank" class="btn-icon" title="GitHub Repo">
+          <i class="fab fa-github"></i>
+        </a>
+      </div>
+    </header>
+
+    <!-- Dashboard Tab -->
+    <section class="tab-content active" id="dashboardTab">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon total">
+            <i class="fas fa-users"></i>
+          </div>
+          <div class="stat-info">
+            <h3 id="statTotal">0</h3>
+            <p>Total Accounts</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon ready">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <div class="stat-info">
+            <h3 id="statReady">0</h3>
+            <p>Ready to Redeem</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon success">
+            <i class="fas fa-gift"></i>
+          </div>
+          <div class="stat-info">
+            <h3 id="statRedeemed">0</h3>
+            <p>Redeemed</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon failed">
+            <i class="fas fa-times-circle"></i>
+          </div>
+          <div class="stat-info">
+            <h3 id="statFailed">0</h3>
+            <p>Failed</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="panel quick-load">
+          <div class="panel-header">
+            <h3><i class="fas fa-plus-circle"></i> Quick Load Accounts</h3>
+          </div>
+          <div class="panel-body">
+            <p>Paste accounts in <code>phone|password</code> format (one per line)</p>
+            <textarea id="quickLoadInput" placeholder="9003901098|rahul2323&#10;9003901099|pass1234&#10;9003901100|mypassword"></textarea>
+            <div class="panel-actions">
+              <button class="btn btn-primary" id="quickLoadBtn">
+                <i class="fas fa-upload"></i> Load Accounts
+              </button>
+              <button class="btn btn-secondary" id="downloadAccountsBtn">
+                <i class="fas fa-download"></i> Download
+              </button>
+            </div>
+            <p class="hint"><i class="fas fa-info-circle"></i> Max 50 accounts | Format: number|password</p>
+          </div>
+        </div>
+
+        <div class="panel quick-redeem">
+          <div class="panel-header">
+            <h3><i class="fas fa-bolt"></i> Quick Redeem</h3>
+          </div>
+          <div class="panel-body">
+            <p>Enter gift code and redeem on all accounts instantly</p>
+            <input type="text" id="quickRedeemInput" placeholder="Enter gift code here..." maxlength="50">
+            <button class="btn btn-redeem" id="quickRedeemBtn">
+              <i class="fas fa-bolt"></i> Redeem All Accounts
+            </button>
+            <p class="hint"><i class="fas fa-clock"></i> All accounts will be processed in parallel</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel recent-logs">
+        <div class="panel-header">
+          <h3><i class="fas fa-history"></i> Recent Activity</h3>
+          <button class="btn-text" id="viewAllLogs">View All</button>
+        </div>
+        <div class="panel-body">
+          <div class="logs-preview" id="recentLogs">
+            <p class="empty-state"><i class="fas fa-inbox"></i> No activity yet. Load accounts and start redeeming!</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Accounts Tab -->
+    <section class="tab-content" id="accountsTab">
+      <div class="panel">
+        <div class="panel-header">
+          <h3><i class="fas fa-users"></i> Account Manager</h3>
+          <div class="panel-actions-header">
+            <button class="btn btn-secondary btn-sm" id="importAccountsBtn">
+              <i class="fas fa-file-import"></i> Import
+            </button>
+            <button class="btn btn-danger btn-sm" id="deleteAllBtn">
+              <i class="fas fa-trash"></i> Delete All
+            </button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="import-section">
+            <textarea id="accountInput" placeholder="Paste accounts here...&#10;Format: phone|password (one per line)&#10;Example:&#10;9003901098|rahul2323&#10;9003901099|pass1234"></textarea>
+            <div class="import-actions">
+              <button class="btn btn-primary" id="loadAccountsBtn">
+                <i class="fas fa-plus"></i> Load Accounts
+              </button>
+              <button class="btn btn-secondary" id="exportAccountsBtn">
+                <i class="fas fa-download"></i> Export .txt
+              </button>
+            </div>
+            <p class="account-count" id="accountCount">0 / 50 accounts loaded</p>
+          </div>
+
+          <div class="accounts-table-wrapper">
+            <table class="accounts-table" id="accountsTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Phone Number</th>
+                  <th>Password</th>
+                  <th>Status</th>
+                  <th>Last Message</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="accountsTableBody">
+                <tr class="empty-row">
+                  <td colspan="6">
+                    <div class="empty-state">
+                      <i class="fas fa-user-plus"></i>
+                      <p>No accounts loaded yet</p>
+                      <span>Paste accounts above to get started</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Redeem Tab -->
+    <section class="tab-content" id="redeemTab">
+      <div class="redeem-hero">
+        <div class="redeem-input-section">
+          <h2><i class="fas fa-gift"></i> Bulk Gift Code Redemption</h2>
+          <p>Enter your gift code below and all accounts will redeem it simultaneously</p>
+          <div class="redeem-input-wrapper">
+            <input type="text" id="giftCodeInput" placeholder="Enter gift code (e.g., WELCOME2024)" maxlength="50" autocomplete="off">
+            <button class="btn btn-redeem-lg" id="redeemAllBtn">
+              <i class="fas fa-bolt"></i>
+              <span>Redeem All Accounts</span>
+            </button>
+          </div>
+          <div class="redeem-meta">
+            <span><i class="fas fa-users"></i> <strong id="redeemAccountCount">0</strong> accounts ready</span>
+            <span><i class="fas fa-clock"></i> Estimated: <strong>&lt; 2 seconds</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="redeem-progress" id="redeemProgress" style="display: none;">
+        <div class="progress-header">
+          <h3><i class="fas fa-spinner fa-spin"></i> Processing...</h3>
+          <span id="progressText">0 / 0 completed</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+
+      <div class="panel redeem-results" id="redeemResults" style="display: none;">
+        <div class="panel-header">
+          <h3><i class="fas fa-clipboard-list"></i> Redemption Results</h3>
+          <div class="panel-actions-header">
+            <button class="btn btn-secondary btn-sm" id="copyResultsBtn">
+              <i class="fas fa-copy"></i> Copy
+            </button>
+            <button class="btn btn-secondary btn-sm" id="downloadResultsBtn">
+              <i class="fas fa-file-csv"></i> CSV
+            </button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="results-summary" id="resultsSummary"></div>
+          <div class="results-table-wrapper">
+            <table class="results-table" id="resultsTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Phone</th>
+                  <th>Status</th>
+                  <th>Response Message</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody id="resultsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Logs Tab -->
+    <section class="tab-content" id="logsTab">
+      <div class="panel">
+        <div class="panel-header">
+          <h3><i class="fas fa-terminal"></i> System Logs</h3>
+          <div class="panel-actions-header">
+            <button class="btn btn-secondary btn-sm" id="copyLogsBtn">
+              <i class="fas fa-copy"></i> Copy All
+            </button>
+            <button class="btn btn-danger btn-sm" id="clearLogsBtn">
+              <i class="fas fa-eraser"></i> Clear
+            </button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="logs-container" id="logsContainer">
+            <p class="empty-state"><i class="fas fa-terminal"></i> No logs yet. Start redeeming to see activity!</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+      <p>Processing...</p>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

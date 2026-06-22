@@ -1,0 +1,31 @@
+{
+  "name": "yaarwin-redeem-pro",
+  "version": "2.0.0",
+  "description": "Bulk Yarwin gift code redemption tool - Open source web application",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "yaarwin",
+    "gift-code",
+    "redemption",
+    "bulk",
+    "automation",
+    "open-source"
+  ],
+  "author": "Open Source Community",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/yaarwin-redeem-pro"
+  }
+}
