@@ -1,6 +1,6 @@
 /**
  * Yarwin Redeem Pro - Frontend Logic
- * Handles account management, bulk redemption, logging
+ * ADDED: Safe Pre‑Login (1 request per 0.8s) to avoid rate limits
  */
 
 // ============================================
@@ -8,9 +8,10 @@
 // ============================================
 const CONFIG = {
   MAX_ACCOUNTS: 50,
-  API_BASE: '', // Uses relative path - backend proxy
+  API_BASE: '',
   PROJECT: 'ar095',
   REDEEM_TIMEOUT: 10000,
+  PRELOGIN_DELAY: 800, // milliseconds between login attempts
 };
 
 // ============================================
@@ -136,6 +137,9 @@ function setupEventListeners() {
   // Logs Actions
   $('copyLogsBtn')?.addEventListener('click', copyLogs);
   $('clearLogsBtn')?.addEventListener('click', clearLogs);
+
+  // ========== PRE-LOGIN BUTTON ==========
+  $('preLoginBtn')?.addEventListener('click', preLoginAll);
 }
 
 // ============================================
@@ -152,13 +156,13 @@ function loadAccounts(text) {
       const phone = parts[0].trim();
       const password = parts[1].trim();
       if (phone && password) {
-        // Check if already exists
         const exists = state.accounts.some(a => a.phone === phone);
         if (!exists) {
           newAccounts.push({
             id: Date.now() + Math.random(),
             phone,
             password,
+            token: null,          // <-- token storage
             status: 'ready',
             lastMessage: '',
             redeemedAt: null
@@ -188,6 +192,9 @@ function loadAccounts(text) {
   saveToStorage();
   updateUI();
   log('success', `Loaded ${newAccounts.length} accounts. Total: ${state.accounts.length}`);
+
+  // Optional: Auto-start pre-login? Uncomment the next line if you want it automatic.
+  // preLoginAll();
 }
 
 function deleteAccount(id) {
@@ -224,11 +231,116 @@ function downloadAccounts() {
 }
 
 // ============================================
-// BULK REDEEM
+// SAFE PRE-LOGIN (1 request per 0.8 seconds)
+// ============================================
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function preLoginAll() {
+  const accountsToLogin = state.accounts.filter(a => !a.token);
+  if (accountsToLogin.length === 0) {
+    showToast('All accounts already have tokens!', 'info');
+    return;
+  }
+
+  if (state.isRedeeming) {
+    showToast('Redeem in progress, please wait...', 'warning');
+    return;
+  }
+
+  const btn = $('preLoginBtn');
+  if (btn) btn.disabled = true;
+
+  const statusEl = $('preLoginStatus');
+  if (statusEl) statusEl.textContent = '⏳ Logging in...';
+
+  log('info', `Starting safe pre-login for ${accountsToLogin.length} accounts (${CONFIG.PRELOGIN_DELAY}ms delay)...`);
+  showToast(`Pre-login started for ${accountsToLogin.length} accounts...`, 'info');
+
+  let successCount = 0;
+  let failedCount = 0;
+  let total = accountsToLogin.length;
+
+  for (let i = 0; i < accountsToLogin.length; i++) {
+    const account = accountsToLogin[i];
+    try {
+      const loginRes = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: account.phone,
+          pwd: account.password
+        })
+      });
+      const data = await loginRes.json();
+
+      if (data.code === 0 && data.data?.token) {
+        account.token = data.data.token;
+        account.status = 'ready';
+        account.lastMessage = 'Token cached';
+        successCount++;
+        log('success', `[${account.phone}] Token cached (${successCount}/${total})`);
+      } else {
+        account.status = 'login-failed';
+        account.lastMessage = data.msg || 'Login failed';
+        failedCount++;
+        log('error', `[${account.phone}] Failed: ${account.lastMessage}`);
+      }
+    } catch (e) {
+      account.status = 'login-failed';
+      account.lastMessage = `Network error: ${e.message}`;
+      failedCount++;
+      log('error', `[${account.phone}] Error: ${e.message}`);
+    }
+
+    // Update UI
+    renderAccountsTable();
+    updateStats();
+    saveToStorage();
+
+    if (statusEl) {
+      statusEl.textContent = `⏳ ${i+1}/${total} done (${successCount} ok, ${failedCount} fail)`;
+    }
+
+    // Wait before next attempt (except last)
+    if (i < accountsToLogin.length - 1) {
+      await sleep(CONFIG.PRELOGIN_DELAY);
+    }
+  }
+
+  if (btn) btn.disabled = false;
+  if (statusEl) {
+    statusEl.textContent = `✅ Done: ${successCount} cached, ${failedCount} failed`;
+    setTimeout(() => { statusEl.textContent = ''; }, 8000);
+  }
+
+  showToast(`Pre-login done! ${successCount} cached, ${failedCount} failed.`, successCount > 0 ? 'success' : 'warning');
+  log('info', `Pre-login complete. Success: ${successCount}, Failed: ${failedCount}`);
+}
+
+// ============================================
+// BULK REDEEM (uses cached tokens)
 // ============================================
 async function startRedeem(giftCode) {
   if (state.isRedeeming) return;
   if (state.accounts.length === 0) return showToast('No accounts loaded', 'warning');
+
+  // Check if all accounts have tokens
+  const missingToken = state.accounts.some(a => !a.token);
+  if (missingToken) {
+    const confirm = window.confirm('Some accounts are not pre-logged in. Do you want to run safe pre-login now? (May take ~40s for 50 accounts)');
+    if (confirm) {
+      await preLoginAll();
+      // After pre-login, check again
+      const stillMissing = state.accounts.some(a => !a.token);
+      if (stillMissing) {
+        return showToast('Some accounts still missing tokens. Please try again.', 'warning');
+      }
+    } else {
+      return showToast('Please pre-login accounts first (click "Safe Pre-Login")', 'warning');
+    }
+  }
 
   state.isRedeeming = true;
   const accounts = [...state.accounts];
@@ -240,33 +352,31 @@ async function startRedeem(giftCode) {
   $('progressFill').style.width = '0%';
   $('progressText').textContent = `0 / ${accounts.length}`;
 
-  // Disable redeem buttons
+  // Disable buttons
   $('quickRedeemBtn')?.setAttribute('disabled', 'true');
   $('redeemAllBtn')?.setAttribute('disabled', 'true');
+  $('preLoginBtn')?.setAttribute('disabled', 'true');
 
   log('info', `Starting bulk redeem with code: ${giftCode} for ${accounts.length} accounts`);
 
   const startTime = Date.now();
 
-  // Process all accounts in parallel
-  const promises = accounts.map((account, index) =>
-    processAccountRedeem(account, giftCode, index, accounts.length)
+  // Redeem in parallel using cached tokens
+  const redeemPromises = accounts.map((account, index) =>
+    redeemWithToken(account, giftCode, index, accounts.length)
   );
 
-  const settledResults = await Promise.allSettled(promises);
-
+  const settledResults = await Promise.allSettled(redeemPromises);
   settledResults.forEach((result, index) => {
     if (result.status === 'fulfilled') {
       results.push(result.value);
-      updateAccountStatus(accounts[index].id, result.value.status, result.value.message);
     } else {
       results.push({
         phone: accounts[index].phone,
         status: 'failed',
-        message: 'Network/Timeout error',
+        message: 'Promise rejected',
         time: 0
       });
-      updateAccountStatus(accounts[index].id, 'failed', 'Network/Timeout error');
     }
   });
 
@@ -281,6 +391,7 @@ async function startRedeem(giftCode) {
   // Re-enable buttons
   $('quickRedeemBtn')?.removeAttribute('disabled');
   $('redeemAllBtn')?.removeAttribute('disabled');
+  $('preLoginBtn')?.removeAttribute('disabled');
 
   state.isRedeeming = false;
   saveToStorage();
@@ -290,37 +401,16 @@ async function startRedeem(giftCode) {
   showToast(`Redeem complete! ${successCount}/${accounts.length} successful`, successCount > 0 ? 'success' : 'warning');
 }
 
-async function processAccountRedeem(account, giftCode, index, total) {
+async function redeemWithToken(account, giftCode, index, total) {
   const startTime = Date.now();
+  const token = account.token;
+  if (!token) {
+    log('warn', `[${account.phone}] No token, skipping`);
+    updateProgress(index + 1, total);
+    return { phone: account.phone, status: 'login-failed', message: 'No token cached', time: 0 };
+  }
 
   try {
-    // Step 1: Login
-    log('info', `[${account.phone}] Logging in...`);
-
-    const loginRes = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: account.phone,
-        pwd: account.password
-      })
-    });
-
-    const loginData = await loginRes.json();
-
-    if (loginData.code !== 0 || !loginData.data?.token) {
-      const msg = loginData.msg || 'Login failed';
-      log('error', `[${account.phone}] Login failed: ${msg}`);
-      updateProgress(index + 1, total);
-      return { phone: account.phone, status: 'login-failed', message: msg, time: Date.now() - startTime };
-    }
-
-    const token = loginData.data.token;
-    log('success', `[${account.phone}] Login successful`);
-
-    // Step 2: Redeem
-    log('info', `[${account.phone}] Redeeming code: ${giftCode}...`);
-
     const redeemRes = await fetch('/api/redeem', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -329,38 +419,37 @@ async function processAccountRedeem(account, giftCode, index, total) {
         giftCode: giftCode
       })
     });
-
-    const redeemData = await redeemRes.json();
+    const data = await redeemRes.json();
     const elapsed = Date.now() - startTime;
-
     let status, message;
 
-    if (redeemData.code === 0) {
+    if (data.code === 0) {
       status = 'redeemed';
-      message = redeemData.msg || 'Redeemed successfully';
+      message = data.msg || 'Redeemed successfully';
       log('success', `[${account.phone}] ${message}`);
     } else {
-      const msg = redeemData.msg || 'Redeem failed';
+      const msg = data.msg || 'Redeem failed';
       message = msg;
-
-      if (msg.toLowerCase().includes('expired') || msg.toLowerCase().includes('expire')) {
+      if (msg.toLowerCase().includes('expired')) {
         status = 'expired';
-        log('warn', `[${account.phone}] Code expired: ${msg}`);
-      } else if (msg.toLowerCase().includes('already') || msg.toLowerCase().includes('used')) {
+        log('warn', `[${account.phone}] Code expired`);
+      } else if (msg.toLowerCase().includes('already') || msg.toLowerCase().includes('received')) {
         status = 'failed';
-        log('warn', `[${account.phone}] Already used: ${msg}`);
+        log('warn', `[${account.phone}] Already used`);
       } else {
         status = 'failed';
         log('error', `[${account.phone}] Redeem failed: ${msg}`);
       }
     }
-
     updateProgress(index + 1, total);
+    // Update account status
+    account.status = status;
+    account.lastMessage = message;
+    if (status === 'redeemed') account.redeemedAt = new Date().toISOString();
     return { phone: account.phone, status, message, time: elapsed };
-
   } catch (error) {
     const elapsed = Date.now() - startTime;
-    log('error', `[${account.phone}] Error: ${error.message}`);
+    log('error', `[${account.phone}] Redeem error: ${error.message}`);
     updateProgress(index + 1, total);
     return { phone: account.phone, status: 'failed', message: `Error: ${error.message}`, time: elapsed };
   }
@@ -481,7 +570,7 @@ function log(type, message) {
     message
   };
   state.logs.push(entry);
-  if (state.logs.length > 500) state.logs.shift(); // Keep last 500
+  if (state.logs.length > 500) state.logs.shift();
   saveToStorage();
   renderLogs();
 }
@@ -506,7 +595,6 @@ function renderLogs() {
 
   container.innerHTML = logHTML;
 
-  // Recent logs preview (last 5)
   const recent = state.logs.slice(-5).reverse().map(entry => `
     <div class="log-entry">
       <span class="log-time">${entry.time}</span>
@@ -658,5 +746,5 @@ function formatDate(date) {
   return date.toISOString().slice(0, 10).replace(/-/g, '_');
 }
 
-// Make deleteAccount globally accessible for onclick handlers
+// Make deleteAccount globally accessible
 window.deleteAccount = deleteAccount;
