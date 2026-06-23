@@ -177,6 +177,18 @@
           </div>
         </div>
         <div class="panel-body">
+          <!-- ===== ADDED PRE-LOGIN BUTTON AND STATUS ===== -->
+          <div style="display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; align-items: center;">
+            <button class="btn btn-secondary" id="preLoginBtn">
+              <i class="fas fa-shield-alt"></i> Safe Pre‑Login (1 req/sec)
+            </button>
+            <span style="color: var(--text-muted); font-size: 13px;">
+              <i class="fas fa-info-circle"></i> Logs in accounts slowly to avoid rate limits
+            </span>
+            <span id="preLoginStatus" style="color: var(--accent-cyan); font-size: 13px; margin-left: auto;"></span>
+          </div>
+          <!-- ===== END ADDED ===== -->
+
           <div class="import-section">
             <textarea id="accountInput" placeholder="Paste accounts here...&#10;Format: phone|password (one per line)&#10;Example:&#10;9003901098|rahul2323&#10;9003901099|pass1234"></textarea>
             <div class="import-actions">
